@@ -12,7 +12,7 @@ import java.util.Optional;
  * Cung cấp các method để truy vấn bảng users
  */
 @Repository
-public interface UserRepository extends JpaRepository<User, Long> {
+public interface UserRepository extends JpaRepository<User, Integer> {
     
     /**
      * Tìm user theo username

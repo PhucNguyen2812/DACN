@@ -69,7 +69,7 @@ public class CustomUserDetailsService implements UserDetailsService {
      * @throws UsernameNotFoundException nếu user không tồn tại
      */
     @Transactional(readOnly = true)
-    public UserDetails loadUserById(Long userId) throws UsernameNotFoundException {
+    public UserDetails loadUserById(Integer userId) throws UsernameNotFoundException {
         User user = userRepository.findById(userId)
                 .orElseThrow(() -> 
                         new UsernameNotFoundException("User không tồn tại với ID: " + userId));
