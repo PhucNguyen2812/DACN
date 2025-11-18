@@ -8,13 +8,7 @@ import lombok.NoArgsConstructor;
 import java.time.LocalDateTime;
 
 /**
- * DTO cho thông tin user (không bao gồm password)
- * 
- * File: UserDTO.java
- * Location: src/main/java/com/DACN/quanlikhoa/dto/UserDTO.java
- * 
- * Dùng để trả về thông tin user cho client
- * ⚠️ KHÔNG BAO GIỜ trả về passwordHash trong response
+ * DTO cho User (không bao gồm password)
  */
 @Data
 @NoArgsConstructor
@@ -33,6 +27,4 @@ public class UserDTO {
     private Boolean isActive;
     private LocalDateTime lastLogin;
     private LocalDateTime createdAt;
-    
-    // ⚠️ KHÔNG có field passwordHash - bảo mật!
 }

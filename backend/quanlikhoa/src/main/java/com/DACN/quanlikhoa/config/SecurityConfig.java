@@ -19,7 +19,7 @@ import org.springframework.security.web.authentication.UsernamePasswordAuthentic
 import org.springframework.web.cors.CorsConfigurationSource;
 
 /**
- * SecurityConfig - WITH DEBUG ENDPOINTS
+ * Security Configuration
  */
 @Configuration
 @EnableWebSecurity
@@ -63,10 +63,10 @@ public class SecurityConfig {
                 
                 .authorizeHttpRequests(auth -> auth
                         .requestMatchers("/auth/**").permitAll()
-                        .requestMatchers("/debug/**").permitAll()     // ← THÊM DEBUG
                         .requestMatchers("/public/**").permitAll()
+                        .requestMatchers("/uploads/**").permitAll()
                         .requestMatchers("/error").permitAll()
-                        .requestMatchers("/admin/**").hasRole("ADMIN")
+                        .requestMatchers("/admin/**").hasAnyRole("ADMIN", "TRUONG_KHOA")
                         .anyRequest().authenticated()
                 )
                 

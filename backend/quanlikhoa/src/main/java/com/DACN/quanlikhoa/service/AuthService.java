@@ -18,11 +18,6 @@ import org.springframework.transaction.annotation.Transactional;
 
 /**
  * Authentication Service
- * 
- * File: AuthService.java
- * Location: src/main/java/com/DACN/quanlikhoa/service/AuthService.java
- * 
- * Service xử lý authentication (đăng nhập)
  */
 @Service
 public class AuthService {
@@ -38,30 +33,11 @@ public class AuthService {
     @Autowired
     private UserRepository userRepository;
     
-    /**
-     * Xử lý login
-     * 
-     * Flow:
-     * 1. Authenticate user với username/password
-     * 2. Generate JWT token
-     * 3. Update last_login
-     * 4. Return LoginResponse với token và user info
-     * 
-     * @param loginRequest DTO chứa username và password
-     * @return LoginResponse với token và user info
-     * @throws BadCredentialsException nếu username/password sai
-     */
     @Transactional
     public LoginResponse login(LoginRequest loginRequest) {
         try {
             logger.info("Đang xử lý login cho user: {}", loginRequest.getUsername());
             
-            // 1. Authenticate user
-            // AuthenticationManager sẽ:
-            // - Gọi CustomUserDetailsService.loadUserByUsername()
-            // - So sánh password bằng BCryptPasswordEncoder
-            // - Nếu đúng → return Authentication object
-            // - Nếu sai → throw BadCredentialsException
             Authentication authentication = authenticationManager.authenticate(
                     new UsernamePasswordAuthenticationToken(
                             loginRequest.getUsername(),
@@ -69,21 +45,16 @@ public class AuthService {
                     )
             );
             
-            // 2. Set authentication vào SecurityContext
             SecurityContextHolder.getContext().setAuthentication(authentication);
             
-            // 3. Generate JWT token
             String jwt = tokenProvider.generateToken(authentication);
             
-            // 4. Load user từ database để lấy thông tin đầy đủ
             User user = userRepository.findByUsername(loginRequest.getUsername())
                     .orElseThrow(() -> new BadCredentialsException("User không tồn tại"));
             
-            // 5. Update last_login timestamp
             user.updateLastLogin();
             userRepository.save(user);
             
-            // 6. Build LoginResponse
             LoginResponse response = LoginResponse.builder()
                     .accessToken(jwt)
                     .tokenType("Bearer")
@@ -107,26 +78,11 @@ public class AuthService {
         }
     }
     
-    /**
-     * Logout (optional - JWT là stateless)
-     * 
-     * Với JWT stateless, không cần xử lý logout ở server
-     * Client chỉ cần xóa token ở local storage
-     * 
-     * Nếu muốn implement logout nghiêm ngặt:
-     * - Lưu token vào blacklist (Redis)
-     * - Check blacklist mỗi request
-     */
     public void logout() {
         SecurityContextHolder.clearContext();
         logger.info("User đã logout");
     }
     
-    /**
-     * Get current authenticated user
-     * 
-     * @return User hiện tại đang đăng nhập
-     */
     public User getCurrentUser() {
         Authentication authentication = SecurityContextHolder.getContext().getAuthentication();
         String username = authentication.getName();
