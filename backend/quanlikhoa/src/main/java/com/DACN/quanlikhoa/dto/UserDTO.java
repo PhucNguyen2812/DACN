@@ -8,7 +8,10 @@ import lombok.NoArgsConstructor;
 import java.time.LocalDateTime;
 
 /**
- * DTO cho User (không bao gồm password)
+ * DTO để trả về thông tin User cho client
+ * 
+ * File: UserDTO.java
+ * Location: src/main/java/com/DACN/quanlikhoa/dto/UserDTO.java
  */
 @Data
 @NoArgsConstructor
@@ -22,9 +25,17 @@ public class UserDTO {
     private String phone;
     private String fullName;
     private String avatarUrl;
+    
+    // Role info
+    private Integer roleId;
     private String roleName;
     private String roleDescription;
+    
+    // Status
     private Boolean isActive;
     private LocalDateTime lastLogin;
+    
+    // Timestamps
     private LocalDateTime createdAt;
+    private LocalDateTime updatedAt;
 }

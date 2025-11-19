@@ -1,36 +1,39 @@
 package com.DACN.quanlikhoa.config;
 
-import org.springframework.beans.factory.annotation.Value;
+import org.springframework.boot.context.properties.ConfigurationProperties;
 import org.springframework.context.annotation.Configuration;
-import org.springframework.web.servlet.config.annotation.ResourceHandlerRegistry;
-import org.springframework.web.servlet.config.annotation.WebMvcConfigurer;
-
-import java.nio.file.Path;
-import java.nio.file.Paths;
 
 /**
- * Config để serve static files (avatars)
+ * File Storage Configuration
  * 
  * File: FileStorageConfig.java
  * Location: src/main/java/com/DACN/quanlikhoa/config/FileStorageConfig.java
  * 
- * Cấu hình này cho phép truy cập files upload qua URL:
- * http://localhost:8080/api/uploads/avatars/abc-123.jpg
+ * Mô tả: Cấu hình cho việc lưu trữ file (avatar, documents, etc.)
+ * 
+ * Lấy giá trị từ application.properties:
+ * file.upload-dir=uploads/avatars
  */
 @Configuration
-public class FileStorageConfig implements WebMvcConfigurer {
+@ConfigurationProperties(prefix = "file")
+public class FileStorageConfig {
     
-    @Value("${file.upload-dir:uploads/avatars}")
-    private String uploadDir;
+    /**
+     * Đường dẫn thư mục lưu file
+     * Default: uploads/avatars
+     * 
+     * Có thể là:
+     * - Relative path: uploads/avatars (lưu trong project folder)
+     * - Absolute path: /var/uploads/avatars (lưu trong hệ thống)
+     */
+    private String uploadDir = "uploads/avatars";
     
-    @Override
-    public void addResourceHandlers(ResourceHandlerRegistry registry) {
-        // Convert relative path to absolute path
-        Path uploadPath = Paths.get(uploadDir).toAbsolutePath().normalize();
-        String uploadLocation = "file:" + uploadPath.toString() + "/";
-        
-        // Map URL pattern to file location
-        registry.addResourceHandler("/uploads/avatars/**")
-                .addResourceLocations(uploadLocation);
+    // Getters and Setters
+    public String getUploadDir() {
+        return uploadDir;
+    }
+    
+    public void setUploadDir(String uploadDir) {
+        this.uploadDir = uploadDir;
     }
 }

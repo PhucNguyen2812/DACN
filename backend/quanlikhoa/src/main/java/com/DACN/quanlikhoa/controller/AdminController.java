@@ -21,15 +21,15 @@ import org.springframework.web.multipart.MultipartFile;
 import java.util.List;
 
 /**
- * Admin Controller - Quản lý Users
+ * Admin Controller - Quản lý Users (CRUD)
  * 
  * File: AdminController.java
  * Location: src/main/java/com/DACN/quanlikhoa/controller/AdminController.java
  * 
- * REST API endpoints cho Admin quản lý users
  * Base URL: /api/admin
- * 
  * Authorization: Chỉ ADMIN và TRUONG_KHOA mới được truy cập
+ * 
+ * KHÔNG ẢNH HƯỞNG đến Authentication endpoints (/api/auth/*)
  */
 @RestController
 @RequestMapping("/admin")
@@ -45,17 +45,17 @@ public class AdminController {
     private FileStorageService fileStorageService;
     
     /**
-     * Lấy danh sách users có phân trang, tìm kiếm, lọc, sắp xếp
+     * 1. Lấy danh sách users với phân trang, tìm kiếm, lọc, sắp xếp
      * 
      * GET /api/admin/users?page=0&size=20&search=admin&roleId=1&isActive=true&sortBy=createdAt&sortDirection=desc
      * 
-     * Query params:
+     * Query Parameters:
      * - page: Số trang (default: 0)
-     * - size: Số items/trang (default: 20)
+     * - size: Số items/trang (default: 20, max: 100)
      * - search: Từ khóa tìm kiếm (username, email, fullName)
-     * - roleId: Filter theo role
+     * - roleId: Filter theo role ID
      * - isActive: Filter theo status (true/false)
-     * - sortBy: Sắp xếp theo field (createdAt, username, fullName)
+     * - sortBy: Sắp xếp theo field (createdAt, username, fullName, email)
      * - sortDirection: Hướng sắp xếp (asc, desc)
      * 
      * Response:
@@ -83,10 +83,15 @@ public class AdminController {
             @RequestParam(defaultValue = "createdAt") String sortBy,
             @RequestParam(defaultValue = "desc") String sortDirection
     ) {
-        logger.info("API /api/admin/users - page={}, size={}, search={}, roleId={}, isActive={}", 
-                page, size, search, roleId, isActive);
+        logger.info("GET /api/admin/users - page={}, size={}, search={}, roleId={}, isActive={}, sortBy={}, sortDirection={}", 
+                page, size, search, roleId, isActive, sortBy, sortDirection);
         
         try {
+            // Validate page và size
+            if (page < 0) page = 0;
+            if (size < 1) size = 20;
+            if (size > 100) size = 100; // Max 100 items per page
+            
             PageResponse<UserDTO> result = adminService.getUsers(
                     page, size, search, roleId, isActive, sortBy, sortDirection);
             
@@ -94,14 +99,14 @@ public class AdminController {
                     ApiResponse.success("Lấy danh sách users thành công", result)
             );
         } catch (Exception e) {
-            logger.error("Lỗi khi lấy danh sách users: {}", e.getMessage());
+            logger.error("Lỗi khi lấy danh sách users: {}", e.getMessage(), e);
             return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
                     .body(ApiResponse.error("Lỗi: " + e.getMessage()));
         }
     }
     
     /**
-     * Lấy thông tin chi tiết 1 user
+     * 2. Lấy thông tin chi tiết 1 user theo ID
      * 
      * GET /api/admin/users/{id}
      * 
@@ -112,13 +117,14 @@ public class AdminController {
      *   "data": {
      *     "userId": 1,
      *     "username": "admin",
+     *     "email": "admin@example.com",
      *     ...
      *   }
      * }
      */
     @GetMapping("/users/{id}")
     public ResponseEntity<ApiResponse<UserDTO>> getUserById(@PathVariable Integer id) {
-        logger.info("API /api/admin/users/{} - Lấy chi tiết user", id);
+        logger.info("GET /api/admin/users/{}", id);
         
         try {
             UserDTO user = adminService.getUserById(id);
@@ -126,26 +132,27 @@ public class AdminController {
                     ApiResponse.success("Lấy thông tin user thành công", user)
             );
         } catch (RuntimeException e) {
-            logger.error("Lỗi: {}", e.getMessage());
+            logger.error("User không tồn tại: {}", e.getMessage());
             return ResponseEntity.status(HttpStatus.NOT_FOUND)
                     .body(ApiResponse.error(e.getMessage()));
         } catch (Exception e) {
-            logger.error("Lỗi khi lấy user: {}", e.getMessage());
+            logger.error("Lỗi khi lấy user: {}", e.getMessage(), e);
             return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
                     .body(ApiResponse.error("Lỗi: " + e.getMessage()));
         }
     }
     
     /**
-     * Tạo user mới
+     * 3. Tạo user mới
      * 
      * POST /api/admin/users
+     * Content-Type: application/json
      * 
      * Request Body:
      * {
      *   "username": "user01",
      *   "password": "123456",
-     *   "email": "user01@gmail.com",
+     *   "email": "user01@example.com",
      *   "phone": "0123456789",
      *   "fullName": "Nguyễn Văn A",
      *   "roleId": 4,
@@ -163,35 +170,39 @@ public class AdminController {
     public ResponseEntity<ApiResponse<UserDTO>> createUser(
             @Valid @RequestBody UserCreateRequest request) {
         
-        logger.info("API /api/admin/users - Tạo user mới: {}", request.getUsername());
+        logger.info("POST /api/admin/users - Tạo user mới: {}", request.getUsername());
         
         try {
             UserDTO createdUser = adminService.createUser(request);
+            
             return ResponseEntity.status(HttpStatus.CREATED)
                     .body(ApiResponse.success("Tạo user thành công", createdUser));
+                    
         } catch (RuntimeException e) {
-            logger.error("Lỗi: {}", e.getMessage());
+            logger.error("Lỗi validation: {}", e.getMessage());
             return ResponseEntity.status(HttpStatus.BAD_REQUEST)
                     .body(ApiResponse.error(e.getMessage()));
         } catch (Exception e) {
-            logger.error("Lỗi khi tạo user: {}", e.getMessage());
+            logger.error("Lỗi khi tạo user: {}", e.getMessage(), e);
             return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
                     .body(ApiResponse.error("Lỗi: " + e.getMessage()));
         }
     }
     
     /**
-     * Cập nhật thông tin user
+     * 4. Cập nhật thông tin user
      * 
      * PUT /api/admin/users/{id}
+     * Content-Type: application/json
      * 
      * Request Body:
      * {
-     *   "email": "newemail@gmail.com",
+     *   "email": "newemail@example.com",
      *   "phone": "0987654321",
      *   "fullName": "Nguyễn Văn B",
      *   "roleId": 5,
-     *   "isActive": true
+     *   "isActive": true,
+     *   "newPassword": "newpassword123"
      * }
      * 
      * Response:
@@ -206,26 +217,28 @@ public class AdminController {
             @PathVariable Integer id,
             @Valid @RequestBody UserUpdateRequest request) {
         
-        logger.info("API /api/admin/users/{} - Cập nhật user", id);
+        logger.info("PUT /api/admin/users/{} - Cập nhật user", id);
         
         try {
             UserDTO updatedUser = adminService.updateUser(id, request);
+            
             return ResponseEntity.ok(
                     ApiResponse.success("Cập nhật user thành công", updatedUser)
             );
+            
         } catch (RuntimeException e) {
-            logger.error("Lỗi: {}", e.getMessage());
+            logger.error("Lỗi validation: {}", e.getMessage());
             return ResponseEntity.status(HttpStatus.BAD_REQUEST)
                     .body(ApiResponse.error(e.getMessage()));
         } catch (Exception e) {
-            logger.error("Lỗi khi cập nhật user: {}", e.getMessage());
+            logger.error("Lỗi khi cập nhật user: {}", e.getMessage(), e);
             return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
                     .body(ApiResponse.error("Lỗi: " + e.getMessage()));
         }
     }
     
     /**
-     * Xóa user (soft delete)
+     * 5. Xóa user (Soft Delete - set isActive = false)
      * 
      * DELETE /api/admin/users/{id}
      * 
@@ -238,26 +251,62 @@ public class AdminController {
      */
     @DeleteMapping("/users/{id}")
     public ResponseEntity<ApiResponse<Void>> deleteUser(@PathVariable Integer id) {
-        logger.info("API /api/admin/users/{} - Xóa user", id);
+        logger.info("DELETE /api/admin/users/{} - Xóa user (soft delete)", id);
         
         try {
             adminService.deleteUser(id);
+            
             return ResponseEntity.ok(
                     ApiResponse.success("Xóa user thành công", null)
             );
+            
         } catch (RuntimeException e) {
-            logger.error("Lỗi: {}", e.getMessage());
+            logger.error("User không tồn tại: {}", e.getMessage());
             return ResponseEntity.status(HttpStatus.NOT_FOUND)
                     .body(ApiResponse.error(e.getMessage()));
         } catch (Exception e) {
-            logger.error("Lỗi khi xóa user: {}", e.getMessage());
+            logger.error("Lỗi khi xóa user: {}", e.getMessage(), e);
             return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
                     .body(ApiResponse.error("Lỗi: " + e.getMessage()));
         }
     }
     
     /**
-     * Bật/tắt trạng thái active của user
+     * 6. Khôi phục user đã xóa
+     * 
+     * PUT /api/admin/users/{id}/restore
+     * 
+     * Response:
+     * {
+     *   "success": true,
+     *   "message": "Khôi phục user thành công",
+     *   "data": { ... }
+     * }
+     */
+    @PutMapping("/users/{id}/restore")
+    public ResponseEntity<ApiResponse<UserDTO>> restoreUser(@PathVariable Integer id) {
+        logger.info("PUT /api/admin/users/{}/restore - Khôi phục user", id);
+        
+        try {
+            UserDTO restoredUser = adminService.restoreUser(id);
+            
+            return ResponseEntity.ok(
+                    ApiResponse.success("Khôi phục user thành công", restoredUser)
+            );
+            
+        } catch (RuntimeException e) {
+            logger.error("User không tồn tại: {}", e.getMessage());
+            return ResponseEntity.status(HttpStatus.NOT_FOUND)
+                    .body(ApiResponse.error(e.getMessage()));
+        } catch (Exception e) {
+            logger.error("Lỗi khi khôi phục user: {}", e.getMessage(), e);
+            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
+                    .body(ApiResponse.error("Lỗi: " + e.getMessage()));
+        }
+    }
+    
+    /**
+     * 7. Bật/tắt trạng thái active của user
      * 
      * PUT /api/admin/users/{id}/toggle-status
      * 
@@ -270,28 +319,31 @@ public class AdminController {
      */
     @PutMapping("/users/{id}/toggle-status")
     public ResponseEntity<ApiResponse<UserDTO>> toggleUserStatus(@PathVariable Integer id) {
-        logger.info("API /api/admin/users/{}/toggle-status", id);
+        logger.info("PUT /api/admin/users/{}/toggle-status", id);
         
         try {
             UserDTO updatedUser = adminService.toggleUserStatus(id);
+            
             return ResponseEntity.ok(
                     ApiResponse.success("Cập nhật trạng thái user thành công", updatedUser)
             );
+            
         } catch (RuntimeException e) {
-            logger.error("Lỗi: {}", e.getMessage());
+            logger.error("User không tồn tại: {}", e.getMessage());
             return ResponseEntity.status(HttpStatus.NOT_FOUND)
                     .body(ApiResponse.error(e.getMessage()));
         } catch (Exception e) {
-            logger.error("Lỗi khi toggle status: {}", e.getMessage());
+            logger.error("Lỗi khi toggle status: {}", e.getMessage(), e);
             return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
                     .body(ApiResponse.error("Lỗi: " + e.getMessage()));
         }
     }
     
     /**
-     * Upload avatar cho user
+     * 8. Upload avatar cho user
      * 
      * POST /api/admin/users/upload-avatar
+     * Content-Type: multipart/form-data
      * 
      * Form-data:
      * - file: MultipartFile (image)
@@ -300,35 +352,35 @@ public class AdminController {
      * {
      *   "success": true,
      *   "message": "Upload avatar thành công",
-     *   "data": {
-     *     "avatarUrl": "/uploads/avatars/abc-123.jpg"
-     *   }
+     *   "data": "/uploads/avatars/abc-123.jpg"
      * }
      */
     @PostMapping("/users/upload-avatar")
     public ResponseEntity<ApiResponse<String>> uploadAvatar(
             @RequestParam("file") MultipartFile file) {
         
-        logger.info("API /api/admin/users/upload-avatar - Upload avatar");
+        logger.info("POST /api/admin/users/upload-avatar - Upload avatar");
         
         try {
             String avatarUrl = fileStorageService.storeFile(file);
+            
             return ResponseEntity.ok(
                     ApiResponse.success("Upload avatar thành công", avatarUrl)
             );
+            
         } catch (IllegalArgumentException e) {
             logger.error("Validation error: {}", e.getMessage());
             return ResponseEntity.status(HttpStatus.BAD_REQUEST)
                     .body(ApiResponse.error(e.getMessage()));
         } catch (Exception e) {
-            logger.error("Lỗi khi upload avatar: {}", e.getMessage());
+            logger.error("Lỗi khi upload avatar: {}", e.getMessage(), e);
             return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
                     .body(ApiResponse.error("Lỗi: " + e.getMessage()));
         }
     }
     
     /**
-     * Lấy danh sách tất cả roles
+     * 9. Lấy danh sách tất cả roles
      * 
      * GET /api/admin/roles
      * 
@@ -349,15 +401,51 @@ public class AdminController {
      */
     @GetMapping("/roles")
     public ResponseEntity<ApiResponse<List<Role>>> getAllRoles() {
-        logger.info("API /api/admin/roles - Lấy danh sách roles");
+        logger.info("GET /api/admin/roles - Lấy danh sách roles");
         
         try {
             List<Role> roles = adminService.getAllRoles();
+            
             return ResponseEntity.ok(
                     ApiResponse.success("Lấy danh sách roles thành công", roles)
             );
+            
         } catch (Exception e) {
-            logger.error("Lỗi khi lấy roles: {}", e.getMessage());
+            logger.error("Lỗi khi lấy roles: {}", e.getMessage(), e);
+            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
+                    .body(ApiResponse.error("Lỗi: " + e.getMessage()));
+        }
+    }
+    
+    /**
+     * 10. Lấy thống kê users
+     * 
+     * GET /api/admin/users/statistics
+     * 
+     * Response:
+     * {
+     *   "success": true,
+     *   "message": "Lấy thống kê thành công",
+     *   "data": {
+     *     "totalUsers": 150,
+     *     "activeUsers": 120,
+     *     "inactiveUsers": 30
+     *   }
+     * }
+     */
+    @GetMapping("/users/statistics")
+    public ResponseEntity<ApiResponse<AdminService.UserStatistics>> getUserStatistics() {
+        logger.info("GET /api/admin/users/statistics - Lấy thống kê users");
+        
+        try {
+            AdminService.UserStatistics stats = adminService.getUserStatistics();
+            
+            return ResponseEntity.ok(
+                    ApiResponse.success("Lấy thống kê thành công", stats)
+            );
+            
+        } catch (Exception e) {
+            logger.error("Lỗi khi lấy thống kê: {}", e.getMessage(), e);
             return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
                     .body(ApiResponse.error("Lỗi: " + e.getMessage()));
         }
